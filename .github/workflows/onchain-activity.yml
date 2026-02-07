@@ -1,0 +1,84 @@
+name: Onchain Activity Bot
+
+on:
+  workflow_dispatch:
+    inputs:
+      contract:
+        description: 'Target contract'
+        required: false
+        default: 'random'
+        type: choice
+        options:
+          - random
+          - whitelist
+          - treasury
+          - voting
+          - tipjar
+          - crowdfund
+      tx_count:
+        description: 'Number of transactions'
+        required: false
+        default: '2'
+
+env:
+  NODE_VERSION: '20'
+  STACKS_ADDRESS: ${{ secrets.STACKS_ADDRESS }}
+  STACKS_PRIVATE_KEY: ${{ secrets.STACKS_PRIVATE_KEY }}
+
+jobs:
+  execute-transactions:
+    name: Execute Onchain Transactions
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check STX Balance
+        id: balance
+        run: |
+          BALANCE=$(curl -s "https://api.hiro.so/extended/v1/address/${{ secrets.STACKS_ADDRESS }}/stx" | jq -r '.balance')
+          echo "balance=${BALANCE}" >> $GITHUB_OUTPUT
+          echo "Current STX Balance: ${BALANCE} microSTX"
+
+      - name: Run Onchain Bot
+        run: npm run onchain-bot
+        env:
+          STACKS_PRIVATE_KEY: ${{ secrets.STACKS_PRIVATE_KEY }}
+          STACKS_ADDRESS: ${{ secrets.STACKS_ADDRESS }}
+          TARGET_CONTRACT: ${{ github.event.inputs.contract }}
+          TX_COUNT: ${{ github.event.inputs.tx_count }}
+
+      - name: Log transactions
+        run: |
+          echo "## Onchain Activity Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date**: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Address**: ${{ secrets.STACKS_ADDRESS }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Initial Balance**: ${{ steps.balance.outputs.balance }} microSTX" >> $GITHUB_STEP_SUMMARY
+          echo "- **Contract**: ${{ github.event.inputs.contract }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "View transactions on [Stacks Explorer](https://explorer.hiro.so/address/${{ secrets.STACKS_ADDRESS }}?chain=mainnet)" >> $GITHUB_STEP_SUMMARY
+
+  verify-transactions:
+    name: Verify Transactions
+    runs-on: ubuntu-latest
+    needs: execute-transactions
+    
+    steps:
+      - name: Wait for confirmation
+        run: sleep 60
+
+      - name: Check transaction status
+        run: |
+          echo "Checking recent transactions for ${{ secrets.STACKS_ADDRESS }}..."
+          curl -s "https://api.hiro.so/extended/v1/address/${{ secrets.STACKS_ADDRESS }}/transactions?limit=5" | jq '.results[] | {tx_id, tx_status, tx_type}'

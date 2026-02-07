@@ -1,0 +1,86 @@
+{
+  "docs": [
+    "docs: update API documentation with examples",
+    "docs: improve README installation section",
+    "docs: add troubleshooting guide",
+    "docs: update configuration reference",
+    "docs: add deployment instructions",
+    "docs: improve code documentation",
+    "docs: add architecture diagrams",
+    "docs: update changelog",
+    "docs: add contributing guidelines",
+    "docs: improve inline comments"
+  ],
+  "test": [
+    "test: add unit tests for core functions",
+    "test: improve test coverage",
+    "test: add integration tests",
+    "test: fix flaky test cases",
+    "test: add edge case handling tests",
+    "test: update test fixtures",
+    "test: add performance benchmarks",
+    "test: improve test assertions",
+    "test: add mock implementations",
+    "test: refactor test utilities"
+  ],
+  "feature": [
+    "feat: add utility function for validation",
+    "feat: implement helper method",
+    "feat: add type definitions",
+    "feat: implement caching mechanism",
+    "feat: add error handling utility",
+    "feat: implement retry logic",
+    "feat: add logging enhancements",
+    "feat: implement rate limiting",
+    "feat: add metrics collection",
+    "feat: implement batch processing"
+  ],
+  "fix": [
+    "fix: resolve edge case in validation",
+    "fix: correct type definitions",
+    "fix: handle null values properly",
+    "fix: improve error handling",
+    "fix: resolve memory optimization",
+    "fix: correct calculation logic",
+    "fix: fix async handling",
+    "fix: resolve race condition",
+    "fix: handle timeout properly",
+    "fix: correct boundary conditions"
+  ],
+  "refactor": [
+    "refactor: simplify function logic",
+    "refactor: improve code readability",
+    "refactor: extract common functionality",
+    "refactor: optimize performance",
+    "refactor: reduce code duplication",
+    "refactor: improve type safety",
+    "refactor: modernize syntax",
+    "refactor: improve naming conventions",
+    "refactor: reorganize module structure",
+    "refactor: improve error messages"
+  ],
+  "ci": [
+    "ci: update workflow configuration",
+    "ci: add dependency caching",
+    "ci: improve build performance",
+    "ci: add deployment automation",
+    "ci: update Node.js version",
+    "ci: add code quality checks",
+    "ci: improve test parallelization",
+    "ci: add security scanning",
+    "ci: optimize artifact handling",
+    "ci: add release automation"
+  ],
+  "chore": [
+    "chore: update dependencies",
+    "chore: clean up unused code",
+    "chore: update gitignore",
+    "chore: reorganize project structure",
+    "chore: update package metadata",
+    "chore: improve build configuration",
+    "chore: update linting rules",
+    "chore: clean up imports",
+    "chore: update license",
+    "chore: improve error messages"
+  ]
+}

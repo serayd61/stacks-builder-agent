@@ -1,0 +1,31 @@
+{
+  "sections": [
+    {
+      "title": "Getting Started",
+      "content": "## Getting Started\n\nThis guide will help you set up and run the project.\n\n### Prerequisites\n\n- Node.js 18+\n- npm or yarn\n- Git\n\n### Installation\n\n```bash\nnpm install\nnpm run build\nnpm start\n```"
+    },
+    {
+      "title": "Configuration",
+      "content": "## Configuration\n\nThe project can be configured through environment variables or config files.\n\n### Environment Variables\n\n| Variable | Description | Default |\n|----------|-------------|--------|\n| `STACKS_NETWORK` | Network to use | mainnet |\n| `API_URL` | API endpoint | https://api.hiro.so |"
+    },
+    {
+      "title": "API Reference",
+      "content": "## API Reference\n\n### Core Functions\n\n#### `initialize(config)`\n\nInitializes the client with the given configuration.\n\n**Parameters:**\n- `config` - Configuration object\n\n**Returns:** Client instance"
+    },
+    {
+      "title": "Troubleshooting",
+      "content": "## Troubleshooting\n\n### Common Issues\n\n#### Connection Errors\n\nIf you see connection errors, check:\n1. Network connectivity\n2. API endpoint configuration\n3. Firewall settings"
+    }
+  ],
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-02-07",
+      "changes": [
+        "Initial release",
+        "Core functionality implemented",
+        "Documentation added"
+      ]
+    }
+  ]
+}

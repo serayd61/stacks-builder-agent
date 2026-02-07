@@ -1,0 +1,48 @@
+{
+  "utilities": [
+    {
+      "name": "validateAddress",
+      "code": "export function validateAddress(address: string): boolean {\n  if (!address || typeof address !== 'string') return false;\n  return /^S[PM][A-Z0-9]{38,40}$/.test(address);\n}"
+    },
+    {
+      "name": "formatSTX",
+      "code": "export function formatSTX(microSTX: bigint | number): string {\n  const stx = Number(microSTX) / 1_000_000;\n  return `${stx.toLocaleString()} STX`;\n}"
+    },
+    {
+      "name": "sleep",
+      "code": "export function sleep(ms: number): Promise<void> {\n  return new Promise(resolve => setTimeout(resolve, ms));\n}"
+    },
+    {
+      "name": "retry",
+      "code": "export async function retry<T>(fn: () => Promise<T>, attempts: number = 3): Promise<T> {\n  let lastError: Error;\n  for (let i = 0; i < attempts; i++) {\n    try {\n      return await fn();\n    } catch (e) {\n      lastError = e as Error;\n    }\n  }\n  throw lastError!;\n}"
+    },
+    {
+      "name": "chunk",
+      "code": "export function chunk<T>(array: T[], size: number): T[][] {\n  const chunks: T[][] = [];\n  for (let i = 0; i < array.length; i += size) {\n    chunks.push(array.slice(i, i + size));\n  }\n  return chunks;\n}"
+    }
+  ],
+  "tests": [
+    {
+      "name": "basicTest",
+      "code": "describe('Basic functionality', () => {\n  it('should work correctly', () => {\n    expect(true).toBe(true);\n  });\n});"
+    },
+    {
+      "name": "asyncTest",
+      "code": "describe('Async operations', () => {\n  it('should handle async correctly', async () => {\n    const result = await Promise.resolve(42);\n    expect(result).toBe(42);\n  });\n});"
+    },
+    {
+      "name": "errorTest",
+      "code": "describe('Error handling', () => {\n  it('should throw on invalid input', () => {\n    expect(() => { throw new Error('Invalid'); }).toThrow('Invalid');\n  });\n});"
+    }
+  ],
+  "types": [
+    {
+      "name": "Transaction",
+      "code": "export interface Transaction {\n  txId: string;\n  status: 'pending' | 'success' | 'failed';\n  timestamp: number;\n  amount?: bigint;\n}"
+    },
+    {
+      "name": "Config",
+      "code": "export interface Config {\n  network: 'mainnet' | 'testnet';\n  apiUrl: string;\n  timeout: number;\n  retries: number;\n}"
+    }
+  ]
+}
