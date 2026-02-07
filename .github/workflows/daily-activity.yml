@@ -64,7 +64,6 @@ jobs:
     name: Onchain Transactions
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.skip_onchain != 'true' }}
-    needs: github-activity
     
     steps:
       - name: Checkout repository

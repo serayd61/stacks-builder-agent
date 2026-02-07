@@ -1,85 +1,89 @@
 /**
  * GitHub Bot - Automated commit generation
+ * Works both locally and in CI (GitHub Actions)
  */
 
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { REPOSITORIES, SCHEDULE } from '../src/config.js';
-import { generateCommitBatch, generateCommitMessage, generateCodeContent } from './content-generator.js';
+import { SCHEDULE } from '../src/config.js';
+import { generateCommitMessage, generateCodeContent } from './content-generator.js';
 
-interface Repository {
+// Repositories to commit to (using GitHub URLs for CI compatibility)
+const TARGET_REPOS = [
+  { owner: 'serayd61', name: 'stacks-defi-sentinel', types: ['feature', 'docs', 'test', 'refactor'] },
+  { owner: 'serayd61', name: 'stx-escrow', types: ['feature', 'docs', 'test'] },
+  { owner: 'serayd61', name: 'stacks-utils', types: ['feature', 'docs', 'test', 'refactor'] },
+  { owner: 'serayd61', name: 'stacks-builder-agent', types: ['feature', 'docs', 'ci', 'refactor'] },
+  { owner: 'serayd61', name: 'stacks-analytics', types: ['feature', 'docs', 'test'] },
+  { owner: 'serayd61', name: 'clarity-patterns', types: ['feature', 'docs', 'test'] },
+  { owner: 'serayd61', name: 'stacks-testing-suite', types: ['feature', 'docs', 'test'] },
+];
+
+interface RepoInfo {
   owner: string;
   name: string;
-  path: string;
   types: string[];
 }
 
 /**
- * Execute git command in repository
+ * Execute shell command
  */
-function git(repoPath: string, command: string): string {
+function exec(command: string, cwd?: string): string {
   try {
-    return execSync(`git ${command}`, {
-      cwd: repoPath,
+    return execSync(command, {
+      cwd,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 30000,
     }).trim();
   } catch (error: any) {
-    console.error(`Git error in ${repoPath}: ${error.message}`);
+    console.error(`  Command failed: ${command}`);
+    console.error(`  Error: ${error.message?.substring(0, 200)}`);
     return '';
   }
 }
 
 /**
- * Check if repository exists locally
+ * Clone or update a repository into a temp directory
  */
-function repoExists(repoPath: string): boolean {
-  return fs.existsSync(path.join(repoPath, '.git'));
-}
-
-/**
- * Clone repository if not exists
- */
-function ensureRepo(repo: Repository): boolean {
-  if (repoExists(repo.path)) {
-    console.log(`✓ Repository exists: ${repo.name}`);
-    return true;
-  }
+function cloneRepo(repo: RepoInfo, workDir: string): string | null {
+  const repoDir = path.join(workDir, repo.name);
+  const ghToken = process.env.GH_PAT || process.env.GITHUB_TOKEN || '';
   
-  console.log(`Cloning ${repo.owner}/${repo.name}...`);
+  const repoUrl = ghToken 
+    ? `https://x-access-token:${ghToken}@github.com/${repo.owner}/${repo.name}.git`
+    : `https://github.com/${repo.owner}/${repo.name}.git`;
+  
   try {
-    const parentDir = path.dirname(repo.path);
-    if (!fs.existsSync(parentDir)) {
-      fs.mkdirSync(parentDir, { recursive: true });
+    if (fs.existsSync(repoDir)) {
+      console.log(`  Pulling latest for ${repo.name}...`);
+      exec('git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true', repoDir);
+    } else {
+      console.log(`  Cloning ${repo.owner}/${repo.name}...`);
+      exec(`git clone --depth 1 ${repoUrl} ${repoDir}`);
     }
-    execSync(`git clone https://github.com/${repo.owner}/${repo.name}.git ${repo.path}`, {
-      encoding: 'utf-8',
-    });
-    return true;
+    
+    // Configure git
+    exec('git config user.name "serayd61"', repoDir);
+    exec('git config user.email "agent@stacks-builder.dev"', repoDir);
+    
+    return repoDir;
   } catch (error: any) {
-    console.error(`Failed to clone ${repo.name}: ${error.message}`);
-    return false;
+    console.error(`  Failed to clone ${repo.name}: ${error.message}`);
+    return null;
   }
 }
 
 /**
- * Create and commit files to repository
+ * Create file and commit to repo
  */
-function commitToRepo(repo: Repository, type: string): boolean {
-  if (!repoExists(repo.path)) {
-    console.log(`Skipping ${repo.name} - not found locally`);
-    return false;
-  }
-  
-  console.log(`\nProcessing ${repo.name} (${type})...`);
-  
-  // Pull latest changes
-  git(repo.path, 'pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true');
+function commitToRepo(repoDir: string, repo: RepoInfo, commitType: string): boolean {
+  console.log(`\n  Committing to ${repo.name} (${commitType})...`);
   
   // Generate content
-  const { filename, content } = generateCodeContent(type);
-  const filePath = path.join(repo.path, filename);
+  const { filename, content } = generateCodeContent(commitType);
+  const filePath = path.join(repoDir, filename);
   
   // Ensure directory exists
   const fileDir = path.dirname(filePath);
@@ -89,41 +93,41 @@ function commitToRepo(repo: Repository, type: string): boolean {
   
   // Write or append to file
   if (fs.existsSync(filePath)) {
-    fs.appendFileSync(filePath, content);
+    fs.appendFileSync(filePath, '\n' + content);
   } else {
     fs.writeFileSync(filePath, content);
   }
   
   // Stage changes
-  git(repo.path, `add "${filename}"`);
+  exec(`git add -A`, repoDir);
   
-  // Check if there are changes to commit
-  const status = git(repo.path, 'status --porcelain');
+  // Check for changes
+  const status = exec('git status --porcelain', repoDir);
   if (!status) {
-    console.log(`  No changes to commit in ${repo.name}`);
+    console.log(`  No changes to commit`);
     return false;
   }
   
   // Generate commit message
-  const message = generateCommitMessage(type);
+  const message = generateCommitMessage(commitType);
   
   // Commit
-  const commitResult = git(repo.path, `commit -m "${message}"`);
+  const commitResult = exec(`git commit -m "${message}"`, repoDir);
   if (!commitResult) {
-    console.log(`  Failed to commit in ${repo.name}`);
+    console.log(`  Failed to commit`);
     return false;
   }
   
-  console.log(`  ✓ Committed: ${message}`);
+  console.log(`  Committed: ${message}`);
   
-  // Push changes
-  const pushResult = git(repo.path, 'push origin main 2>/dev/null || git push origin master 2>/dev/null');
-  if (pushResult !== '') {
-    console.log(`  ✓ Pushed to remote`);
-  } else {
-    console.log(`  ⚠ Push may have failed - check manually`);
+  // Push
+  const pushResult = exec('git push origin main 2>&1 || git push origin master 2>&1', repoDir);
+  if (pushResult.includes('error') || pushResult.includes('fatal')) {
+    console.log(`  Push may have failed: ${pushResult.substring(0, 100)}`);
+    return false;
   }
   
+  console.log(`  Pushed successfully`);
   return true;
 }
 
@@ -135,56 +139,65 @@ function randomBetween(min: number, max: number): number {
 }
 
 /**
- * Select random repositories
- */
-function selectRandomRepos(count: number): Repository[] {
-  const shuffled = [...REPOSITORIES].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
-}
-
-/**
  * Main GitHub bot function
  */
 export async function runGitHubBot(): Promise<void> {
   console.log('='.repeat(60));
-  console.log('🤖 GitHub Bot Starting');
+  console.log('GitHub Bot Starting');
   console.log('='.repeat(60));
   console.log(`Time: ${new Date().toISOString()}`);
   
-  // Determine number of commits
+  // Create temp work directory
+  const workDir = path.join(process.env.RUNNER_TEMP || '/tmp', 'stacks-repos');
+  if (!fs.existsSync(workDir)) {
+    fs.mkdirSync(workDir, { recursive: true });
+  }
+  console.log(`Work directory: ${workDir}`);
+  
+  // Determine commit count and types
   const commitCount = randomBetween(SCHEDULE.commitsPerRun.min, SCHEDULE.commitsPerRun.max);
-  console.log(`Target commits: ${commitCount}`);
-  
-  // Select random repositories
-  const selectedRepos = selectRandomRepos(commitCount);
-  console.log(`Selected repos: ${selectedRepos.map(r => r.name).join(', ')}`);
-  
-  // Day-based commit types
   const dayOfWeek = new Date().getDay();
   const commitTypes = ['docs', 'test', 'feature', 'fix', 'refactor', 'ci', 'docs'];
   const primaryType = commitTypes[dayOfWeek];
   
-  console.log(`\nPrimary commit type for today: ${primaryType}`);
+  console.log(`Target commits: ${commitCount}`);
+  console.log(`Primary type: ${primaryType}`);
+  
+  // Select random repos
+  const shuffled = [...TARGET_REPOS].sort(() => Math.random() - 0.5);
+  const selectedRepos = shuffled.slice(0, commitCount);
+  
+  console.log(`Selected repos: ${selectedRepos.map(r => r.name).join(', ')}`);
   
   let successCount = 0;
   
   for (const repo of selectedRepos) {
-    // Use primary type if repo supports it, otherwise random from repo's types
-    const type = repo.types.includes(primaryType) 
-      ? primaryType 
+    console.log(`\nProcessing ${repo.name}...`);
+    
+    // Clone or update repo
+    const repoDir = cloneRepo(repo, workDir);
+    if (!repoDir) {
+      console.log(`  Skipping - clone failed`);
+      continue;
+    }
+    
+    // Choose commit type
+    const type = repo.types.includes(primaryType)
+      ? primaryType
       : repo.types[Math.floor(Math.random() * repo.types.length)];
     
-    if (commitToRepo(repo, type)) {
+    // Commit
+    if (commitToRepo(repoDir, repo, type)) {
       successCount++;
     }
     
-    // Small delay between repos
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Small delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
   
   console.log('\n' + '='.repeat(60));
-  console.log(`✅ GitHub Bot Complete`);
-  console.log(`   Successful commits: ${successCount}/${commitCount}`);
+  console.log(`GitHub Bot Complete`);
+  console.log(`Successful commits: ${successCount}/${commitCount}`);
   console.log('='.repeat(60));
 }
 

@@ -14,7 +14,6 @@ import {
   FungibleConditionCode,
   makeStandardSTXPostCondition,
 } from '@stacks/transactions';
-import { StacksMainnet } from '@stacks/network';
 import { CONTRACTS, SCHEDULE, STACKS_CONFIG, TEST_ADDRESSES } from '../src/config.js';
 
 // Transaction types we can execute
@@ -140,15 +139,13 @@ async function executeContractCall(
   console.log(`  Function: ${action.function}`);
   
   try {
-    const network = new StacksMainnet();
-    
     const txOptions = {
       contractAddress: contractInfo.address,
       contractName: contractInfo.name,
       functionName: action.function,
       functionArgs: action.args,
       senderKey: privateKey,
-      network,
+      network: 'mainnet' as const,
       anchorMode: AnchorMode.Any,
       postConditionMode: PostConditionMode.Allow,
       fee: BigInt(SCHEDULE.gasFee),
@@ -156,7 +153,7 @@ async function executeContractCall(
     };
     
     const transaction = await makeContractCall(txOptions);
-    const broadcastResponse = await broadcastTransaction(transaction, network);
+    const broadcastResponse = await broadcastTransaction(transaction);
     
     if ('error' in broadcastResponse) {
       console.error(`  ✗ Broadcast error: ${broadcastResponse.error}`);
