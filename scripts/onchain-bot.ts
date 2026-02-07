@@ -1,5 +1,6 @@
 /**
  * Onchain Bot - Automated Stacks mainnet transactions
+ * Uses @stacks/transactions for building and broadcasting txs
  */
 
 import {
@@ -30,7 +31,7 @@ async function getNonce(address: string): Promise<number> {
     const response = await fetch(
       `${STACKS_CONFIG.apiUrl}/extended/v1/address/${address}/nonces`
     );
-    const data = await response.json();
+    const data = await response.json() as any;
     return data.possible_next_nonce || 0;
   } catch (error) {
     console.error('Failed to get nonce:', error);
@@ -46,12 +47,19 @@ async function getBalance(address: string): Promise<bigint> {
     const response = await fetch(
       `${STACKS_CONFIG.apiUrl}/extended/v1/address/${address}/stx`
     );
-    const data = await response.json();
+    const data = await response.json() as any;
     return BigInt(data.balance || 0);
   } catch (error) {
     console.error('Failed to get balance:', error);
     return BigInt(0);
   }
+}
+
+/**
+ * Get a random test address
+ */
+function randomTestAddress(): string {
+  return TEST_ADDRESSES[Math.floor(Math.random() * TEST_ADDRESSES.length)];
 }
 
 /**
@@ -63,7 +71,7 @@ function generateAction(): ContractAction {
     {
       contract: 'whitelist',
       function: 'add-to-whitelist',
-      args: [standardPrincipalCV(TEST_ADDRESSES[Math.floor(Math.random() * TEST_ADDRESSES.length)])],
+      args: [standardPrincipalCV(randomTestAddress())],
       description: 'Add address to whitelist',
     },
     // Treasury operations
@@ -78,9 +86,9 @@ function generateAction(): ContractAction {
       contract: 'voting',
       function: 'vote',
       args: [
-        uintCV(1), // proposal ID
-        uintCV(1), // vote option
-        uintCV(100), // vote weight
+        uintCV(1),
+        uintCV(1),
+        uintCV(100),
       ],
       description: 'Vote on proposal',
     },
@@ -89,7 +97,7 @@ function generateAction(): ContractAction {
       contract: 'tipjar',
       function: 'send-tip',
       args: [
-        standardPrincipalCV(TEST_ADDRESSES[Math.floor(Math.random() * TEST_ADDRESSES.length)]),
+        standardPrincipalCV(randomTestAddress()),
         uintCV(SCHEDULE.minTxAmount),
         someCV(stringUtf8CV('Builder Agent tip')),
       ],
@@ -100,7 +108,7 @@ function generateAction(): ContractAction {
       contract: 'crowdfund',
       function: 'contribute',
       args: [
-        uintCV(1), // campaign ID
+        uintCV(1),
         uintCV(SCHEDULE.minTxAmount),
       ],
       description: 'Contribute to crowdfund',
@@ -109,7 +117,7 @@ function generateAction(): ContractAction {
     {
       contract: 'referral',
       function: 'register-referral',
-      args: [standardPrincipalCV(TEST_ADDRESSES[Math.floor(Math.random() * TEST_ADDRESSES.length)])],
+      args: [standardPrincipalCV(randomTestAddress())],
       description: 'Register referral',
     },
   ];
@@ -135,6 +143,7 @@ async function executeContractCall(
   console.log(`\nExecuting: ${action.description}`);
   console.log(`  Contract: ${contractInfo.address}.${contractInfo.name}`);
   console.log(`  Function: ${action.function}`);
+  console.log(`  Nonce: ${nonce}`);
   
   try {
     const txOptions = {
@@ -150,24 +159,43 @@ async function executeContractCall(
       nonce: BigInt(nonce),
     };
     
+    console.log(`  Building transaction...`);
     const transaction = await makeContractCall(txOptions);
-    const broadcastResponse = await broadcastTransaction(transaction);
     
-    if ('error' in broadcastResponse) {
-      console.error(`  ✗ Broadcast error: ${broadcastResponse.error}`);
-      if ('reason' in broadcastResponse) {
-        console.error(`    Reason: ${broadcastResponse.reason}`);
-      }
-      return null;
+    console.log(`  Broadcasting...`);
+    const broadcastResponse = await broadcastTransaction({
+      transaction,
+      network: 'mainnet',
+    });
+    
+    if (typeof broadcastResponse === 'string') {
+      // Success - txid returned as string
+      console.log(`  ✓ Transaction broadcast: ${broadcastResponse}`);
+      console.log(`  Explorer: ${STACKS_CONFIG.explorerUrl}/txid/${broadcastResponse}?chain=mainnet`);
+      return broadcastResponse;
     }
     
-    const txId = broadcastResponse.txid;
-    console.log(`  ✓ Transaction broadcast: ${txId}`);
-    console.log(`  Explorer: ${STACKS_CONFIG.explorerUrl}/txid/${txId}?chain=mainnet`);
+    if (broadcastResponse && typeof broadcastResponse === 'object') {
+      if ('txid' in broadcastResponse) {
+        const txId = (broadcastResponse as any).txid;
+        console.log(`  ✓ Transaction broadcast: ${txId}`);
+        console.log(`  Explorer: ${STACKS_CONFIG.explorerUrl}/txid/${txId}?chain=mainnet`);
+        return txId;
+      }
+      if ('error' in broadcastResponse) {
+        console.error(`  ✗ Broadcast error: ${(broadcastResponse as any).error}`);
+        if ('reason' in broadcastResponse) {
+          console.error(`    Reason: ${(broadcastResponse as any).reason}`);
+        }
+        return null;
+      }
+    }
     
-    return txId;
+    console.log(`  Response: ${JSON.stringify(broadcastResponse).substring(0, 200)}`);
+    return null;
   } catch (error: any) {
     console.error(`  ✗ Error: ${error.message}`);
+    console.error(`  Stack: ${error.stack?.substring(0, 300)}`);
     return null;
   }
 }
@@ -184,7 +212,7 @@ function randomBetween(min: number, max: number): number {
  */
 export async function runOnchainBot(): Promise<void> {
   console.log('='.repeat(60));
-  console.log('⛓️  Onchain Bot Starting');
+  console.log('Onchain Bot Starting');
   console.log('='.repeat(60));
   console.log(`Time: ${new Date().toISOString()}`);
   console.log(`Network: ${STACKS_CONFIG.network}`);
@@ -193,8 +221,8 @@ export async function runOnchainBot(): Promise<void> {
   // Check for private key
   const privateKey = process.env.STACKS_PRIVATE_KEY;
   if (!privateKey) {
-    console.error('❌ STACKS_PRIVATE_KEY environment variable not set');
-    console.log('   Set it in GitHub Secrets or .env file');
+    console.error('STACKS_PRIVATE_KEY environment variable not set');
+    console.log('Set it in GitHub Secrets or .env file');
     return;
   }
   
@@ -202,9 +230,9 @@ export async function runOnchainBot(): Promise<void> {
   const balance = await getBalance(STACKS_CONFIG.address);
   console.log(`\nCurrent balance: ${balance} microSTX (${Number(balance) / 1_000_000} STX)`);
   
-  const minRequired = BigInt(SCHEDULE.gasFee * 5); // Need enough for at least 5 txs
+  const minRequired = BigInt(SCHEDULE.gasFee * 5);
   if (balance < minRequired) {
-    console.error(`❌ Insufficient balance. Need at least ${minRequired} microSTX`);
+    console.error(`Insufficient balance. Need at least ${minRequired} microSTX`);
     return;
   }
   
@@ -225,7 +253,7 @@ export async function runOnchainBot(): Promise<void> {
     results.push({ action: action.description, txId });
     
     if (txId) {
-      nonce++; // Increment nonce for next tx
+      nonce++;
     }
     
     // Delay between transactions
@@ -237,7 +265,7 @@ export async function runOnchainBot(): Promise<void> {
   
   // Summary
   console.log('\n' + '='.repeat(60));
-  console.log('📊 Transaction Summary');
+  console.log('Transaction Summary');
   console.log('='.repeat(60));
   
   const successful = results.filter(r => r.txId !== null);
@@ -252,7 +280,7 @@ export async function runOnchainBot(): Promise<void> {
   }
   
   console.log('\n' + '='.repeat(60));
-  console.log(`✅ Onchain Bot Complete`);
+  console.log('Onchain Bot Complete');
   console.log('='.repeat(60));
 }
 
