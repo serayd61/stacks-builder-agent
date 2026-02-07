@@ -8,11 +8,9 @@ import {
   AnchorMode,
   PostConditionMode,
   uintCV,
-  principalCV,
+  standardPrincipalCV,
   someCV,
   stringUtf8CV,
-  FungibleConditionCode,
-  makeStandardSTXPostCondition,
 } from '@stacks/transactions';
 import { CONTRACTS, SCHEDULE, STACKS_CONFIG, TEST_ADDRESSES } from '../src/config.js';
 
@@ -65,7 +63,7 @@ function generateAction(): ContractAction {
     {
       contract: 'whitelist',
       function: 'add-to-whitelist',
-      args: [principalCV(TEST_ADDRESSES[Math.floor(Math.random() * TEST_ADDRESSES.length)])],
+      args: [standardPrincipalCV(TEST_ADDRESSES[Math.floor(Math.random() * TEST_ADDRESSES.length)])],
       description: 'Add address to whitelist',
     },
     // Treasury operations
@@ -91,7 +89,7 @@ function generateAction(): ContractAction {
       contract: 'tipjar',
       function: 'send-tip',
       args: [
-        principalCV(TEST_ADDRESSES[Math.floor(Math.random() * TEST_ADDRESSES.length)]),
+        standardPrincipalCV(TEST_ADDRESSES[Math.floor(Math.random() * TEST_ADDRESSES.length)]),
         uintCV(SCHEDULE.minTxAmount),
         someCV(stringUtf8CV('Builder Agent tip')),
       ],
@@ -111,7 +109,7 @@ function generateAction(): ContractAction {
     {
       contract: 'referral',
       function: 'register-referral',
-      args: [principalCV(TEST_ADDRESSES[Math.floor(Math.random() * TEST_ADDRESSES.length)])],
+      args: [standardPrincipalCV(TEST_ADDRESSES[Math.floor(Math.random() * TEST_ADDRESSES.length)])],
       description: 'Register referral',
     },
   ];
