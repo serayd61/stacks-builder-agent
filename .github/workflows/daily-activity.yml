@@ -47,8 +47,8 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global user.name "Stacks Builder Agent"
-          git config --global user.email "agent@stacks-builder.dev"
+          git config --global user.name "serayd61"
+          git config --global user.email "serayd61@users.noreply.github.com"
 
       - name: Run GitHub Bot
         run: npm run github-bot

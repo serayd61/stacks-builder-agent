@@ -64,9 +64,9 @@ function cloneRepo(repo: RepoInfo, workDir: string): string | null {
       exec(`git clone --depth 1 ${repoUrl} ${repoDir}`);
     }
     
-    // Configure git
+    // Configure git - Use GitHub noreply email for proper commit attribution
     exec('git config user.name "serayd61"', repoDir);
-    exec('git config user.email "agent@stacks-builder.dev"', repoDir);
+    exec('git config user.email "serayd61@users.noreply.github.com"', repoDir);
     
     return repoDir;
   } catch (error: any) {
