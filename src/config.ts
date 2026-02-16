@@ -84,17 +84,17 @@ export const REPOSITORIES = [
   },
 ];
 
-// Activity Schedule
+// Activity Schedule - Optimized for Builder Rewards
 export const SCHEDULE = {
-  // Number of commits per run (random between min and max)
-  commitsPerRun: { min: 2, max: 4 },
+  // Number of commits per run (increased for more activity)
+  commitsPerRun: { min: 3, max: 5 },
   // Number of onchain transactions per run
   txPerRun: { min: 1, max: 2 },
   // Minimum STX amount for transactions (in microSTX)
   minTxAmount: 1000, // 0.001 STX
-  maxTxAmount: 10000, // 0.01 STX
+  maxTxAmount: 5000, // 0.005 STX (reduced to conserve STX)
   // Gas fee (in microSTX)
-  gasFee: 5000, // 0.005 STX
+  gasFee: 3000, // 0.003 STX (reduced for efficiency)
 };
 
 // Day-specific commit types

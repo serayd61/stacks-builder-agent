@@ -10,6 +10,7 @@ import { SCHEDULE } from '../src/config.js';
 import { generateCommitMessage, generateCodeContent } from './content-generator.js';
 
 // Repositories to commit to (using GitHub URLs for CI compatibility)
+// Extended list for maximum activity coverage
 const TARGET_REPOS = [
   { owner: 'serayd61', name: 'stacks-defi-sentinel', types: ['feature', 'docs', 'test', 'refactor'] },
   { owner: 'serayd61', name: 'stx-escrow', types: ['feature', 'docs', 'test'] },
@@ -18,6 +19,11 @@ const TARGET_REPOS = [
   { owner: 'serayd61', name: 'stacks-analytics', types: ['feature', 'docs', 'test'] },
   { owner: 'serayd61', name: 'clarity-patterns', types: ['feature', 'docs', 'test'] },
   { owner: 'serayd61', name: 'stacks-testing-suite', types: ['feature', 'docs', 'test'] },
+  { owner: 'serayd61', name: 'stacks-oracle', types: ['feature', 'docs', 'test'] },
+  { owner: 'serayd61', name: 'stacks-voting', types: ['feature', 'docs', 'test'] },
+  { owner: 'serayd61', name: 'stacks-crowdfund', types: ['feature', 'docs', 'test'] },
+  { owner: 'serayd61', name: 'stacks-lottery', types: ['feature', 'docs', 'test'] },
+  { owner: 'serayd61', name: 'stacks-tipjar', types: ['feature', 'docs', 'test'] },
 ];
 
 interface RepoInfo {
