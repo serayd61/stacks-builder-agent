@@ -1,27 +1,17 @@
 /**
  * Onchain Bot - Automated Stacks mainnet transactions
  * Uses @stacks/transactions for building and broadcasting txs
+ * 
+ * Simplified version: Uses STX transfers instead of contract calls
+ * to ensure reliable transaction success
  */
 
 import {
-  makeContractCall,
+  makeSTXTokenTransfer,
   broadcastTransaction,
   AnchorMode,
-  PostConditionMode,
-  uintCV,
-  standardPrincipalCV,
-  someCV,
-  stringUtf8CV,
 } from '@stacks/transactions';
-import { CONTRACTS, SCHEDULE, STACKS_CONFIG, TEST_ADDRESSES } from '../src/config.js';
-
-// Transaction types we can execute
-type ContractAction = {
-  contract: string;
-  function: string;
-  args: any[];
-  description: string;
-};
+import { SCHEDULE, STACKS_CONFIG, TEST_ADDRESSES } from '../src/config.js';
 
 /**
  * Get current nonce for address
@@ -63,104 +53,35 @@ function randomTestAddress(): string {
 }
 
 /**
- * Generate random action for contract interactions
+ * Execute a simple STX transfer
  */
-function generateAction(): ContractAction {
-  const actions: ContractAction[] = [
-    // Whitelist operations
-    {
-      contract: 'whitelist',
-      function: 'add-to-whitelist',
-      args: [standardPrincipalCV(randomTestAddress())],
-      description: 'Add address to whitelist',
-    },
-    // Treasury operations
-    {
-      contract: 'treasury',
-      function: 'deposit',
-      args: [uintCV(SCHEDULE.minTxAmount)],
-      description: 'Deposit to treasury',
-    },
-    // Voting operations
-    {
-      contract: 'voting',
-      function: 'vote',
-      args: [
-        uintCV(1),
-        uintCV(1),
-        uintCV(100),
-      ],
-      description: 'Vote on proposal',
-    },
-    // Tipjar operations
-    {
-      contract: 'tipjar',
-      function: 'send-tip',
-      args: [
-        standardPrincipalCV(randomTestAddress()),
-        uintCV(SCHEDULE.minTxAmount),
-        someCV(stringUtf8CV('Builder Agent tip')),
-      ],
-      description: 'Send tip',
-    },
-    // Crowdfund operations
-    {
-      contract: 'crowdfund',
-      function: 'contribute',
-      args: [
-        uintCV(1),
-        uintCV(SCHEDULE.minTxAmount),
-      ],
-      description: 'Contribute to crowdfund',
-    },
-    // Referral operations
-    {
-      contract: 'referral',
-      function: 'register-referral',
-      args: [standardPrincipalCV(randomTestAddress())],
-      description: 'Register referral',
-    },
-  ];
-  
-  return actions[Math.floor(Math.random() * actions.length)];
-}
-
-/**
- * Execute a contract call
- */
-async function executeContractCall(
-  action: ContractAction,
+async function executeSTXTransfer(
   privateKey: string,
-  nonce: number
+  nonce: number,
+  recipient: string,
+  amount: bigint,
+  memo: string
 ): Promise<string | null> {
-  const contractInfo = CONTRACTS[action.contract as keyof typeof CONTRACTS];
-  
-  if (!contractInfo) {
-    console.error(`Contract not found: ${action.contract}`);
-    return null;
-  }
-  
-  console.log(`\nExecuting: ${action.description}`);
-  console.log(`  Contract: ${contractInfo.address}.${contractInfo.name}`);
-  console.log(`  Function: ${action.function}`);
+  console.log(`\nExecuting STX Transfer`);
+  console.log(`  Recipient: ${recipient}`);
+  console.log(`  Amount: ${amount} microSTX (${Number(amount) / 1_000_000} STX)`);
+  console.log(`  Memo: ${memo}`);
   console.log(`  Nonce: ${nonce}`);
   
   try {
     const txOptions = {
-      contractAddress: contractInfo.address,
-      contractName: contractInfo.name,
-      functionName: action.function,
-      functionArgs: action.args,
+      recipient,
+      amount,
       senderKey: privateKey,
       network: 'mainnet' as const,
       anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
+      memo,
       fee: BigInt(SCHEDULE.gasFee),
       nonce: BigInt(nonce),
     };
     
     console.log(`  Building transaction...`);
-    const transaction = await makeContractCall(txOptions);
+    const transaction = await makeSTXTokenTransfer(txOptions);
     
     console.log(`  Broadcasting...`);
     const broadcastResponse = await broadcastTransaction({
@@ -169,7 +90,6 @@ async function executeContractCall(
     });
     
     if (typeof broadcastResponse === 'string') {
-      // Success - txid returned as string
       console.log(`  ✓ Transaction broadcast: ${broadcastResponse}`);
       console.log(`  Explorer: ${STACKS_CONFIG.explorerUrl}/txid/${broadcastResponse}?chain=mainnet`);
       return broadcastResponse;
@@ -195,7 +115,6 @@ async function executeContractCall(
     return null;
   } catch (error: any) {
     console.error(`  ✗ Error: ${error.message}`);
-    console.error(`  Stack: ${error.stack?.substring(0, 300)}`);
     return null;
   }
 }
@@ -208,11 +127,27 @@ function randomBetween(min: number, max: number): number {
 }
 
 /**
+ * Generate memo for transaction
+ */
+function generateMemo(): string {
+  const memos = [
+    'Builder Activity',
+    'Stacks Builder',
+    'Daily Activity',
+    'Network Support',
+    'Community TX',
+    'Builder Reward',
+    'Ecosystem Growth',
+  ];
+  return memos[Math.floor(Math.random() * memos.length)];
+}
+
+/**
  * Main onchain bot function
  */
 export async function runOnchainBot(): Promise<void> {
   console.log('='.repeat(60));
-  console.log('Onchain Bot Starting');
+  console.log('Onchain Bot Starting (STX Transfer Mode)');
   console.log('='.repeat(60));
   console.log(`Time: ${new Date().toISOString()}`);
   console.log(`Network: ${STACKS_CONFIG.network}`);
@@ -230,9 +165,11 @@ export async function runOnchainBot(): Promise<void> {
   const balance = await getBalance(STACKS_CONFIG.address);
   console.log(`\nCurrent balance: ${balance} microSTX (${Number(balance) / 1_000_000} STX)`);
   
-  const minRequired = BigInt(SCHEDULE.gasFee * 5);
+  // Need enough for transfers + fees
+  const minRequired = BigInt((SCHEDULE.minTxAmount + SCHEDULE.gasFee) * 3);
   if (balance < minRequired) {
-    console.error(`Insufficient balance. Need at least ${minRequired} microSTX`);
+    console.error(`Insufficient balance. Need at least ${Number(minRequired) / 1_000_000} STX`);
+    console.log('Please fund the wallet to continue onchain activity');
     return;
   }
   
@@ -240,17 +177,20 @@ export async function runOnchainBot(): Promise<void> {
   let nonce = await getNonce(STACKS_CONFIG.address);
   console.log(`Starting nonce: ${nonce}`);
   
-  // Determine number of transactions
+  // Determine number of transactions (1-2 per run to conserve STX)
   const txCount = randomBetween(SCHEDULE.txPerRun.min, SCHEDULE.txPerRun.max);
   console.log(`Target transactions: ${txCount}`);
   
-  const results: Array<{ action: string; txId: string | null }> = [];
+  const results: Array<{ recipient: string; amount: bigint; txId: string | null }> = [];
   
   for (let i = 0; i < txCount; i++) {
-    const action = generateAction();
-    const txId = await executeContractCall(action, privateKey, nonce);
+    const recipient = randomTestAddress();
+    const amount = BigInt(randomBetween(SCHEDULE.minTxAmount, SCHEDULE.maxTxAmount));
+    const memo = generateMemo();
     
-    results.push({ action: action.description, txId });
+    const txId = await executeSTXTransfer(privateKey, nonce, recipient, amount, memo);
+    
+    results.push({ recipient, amount, txId });
     
     if (txId) {
       nonce++;
@@ -258,8 +198,8 @@ export async function runOnchainBot(): Promise<void> {
     
     // Delay between transactions
     if (i < txCount - 1) {
-      console.log('\n  Waiting 5 seconds before next transaction...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      console.log('\n  Waiting 3 seconds before next transaction...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
   }
   
@@ -273,11 +213,16 @@ export async function runOnchainBot(): Promise<void> {
   
   for (const result of results) {
     const status = result.txId ? '✓' : '✗';
-    console.log(`  ${status} ${result.action}`);
+    const stxAmount = Number(result.amount) / 1_000_000;
+    console.log(`  ${status} ${stxAmount} STX -> ${result.recipient.substring(0, 20)}...`);
     if (result.txId) {
       console.log(`     ${result.txId}`);
     }
   }
+  
+  // Final balance
+  const finalBalance = await getBalance(STACKS_CONFIG.address);
+  console.log(`\nFinal balance: ${Number(finalBalance) / 1_000_000} STX`);
   
   console.log('\n' + '='.repeat(60));
   console.log('Onchain Bot Complete');
