@@ -150,3 +150,20 @@
 ### Fixed
 - Minor bug fixes
 - Type corrections
+
+
+
+## [1.0.93] - 2026-02-21T14:26:01.192Z
+
+### Added
+- New utility functions
+- Improved documentation
+- Additional test coverage
+
+### Changed
+- Updated dependencies
+- Improved error handling
+
+### Fixed
+- Minor bug fixes
+- Type corrections
